@@ -202,10 +202,14 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = (&controller.DependencyGraphReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
+	reconciler := controller.NewDependencyGraphReconciler(
+		mgr.GetClient(),
+		mgr.GetScheme(),
+	)
+
+	defer reconciler.StopGracefully()
+
+	if err = (reconciler).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "DependencyGraph")
 		os.Exit(1)
 	}

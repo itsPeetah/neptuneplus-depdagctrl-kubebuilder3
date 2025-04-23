@@ -18,8 +18,12 @@ package controller
 
 import (
 	"context"
+	"time"
 
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/wait"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -32,7 +36,16 @@ import (
 // DependencyGraphReconciler reconciles a DependencyGraph object
 type DependencyGraphReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
+	Scheme    *runtime.Scheme
+	scheduled StopSignalTable
+}
+
+func NewDependencyGraphReconciler(client client.Client, scheme *runtime.Scheme) *DependencyGraphReconciler {
+	return &DependencyGraphReconciler{
+		Client:    client,
+		Scheme:    scheme,
+		scheduled: *NewStopSignalTable(),
+	}
 }
 
 // +kubebuilder:rbac:groups=provisioning.pgmp.me,resources=dependencygraphs,verbs=get;list;watch;create;update;patch;delete
@@ -52,17 +65,57 @@ func (r *DependencyGraphReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	logger := logf.FromContext(ctx)
 
 	// TODO(user): your logic here
-	depGraphs := &provisioningv1alpha1.DependencyGraphList{}
-	err := r.List(ctx, depGraphs)
+
+	// Get the dependency graph resource
+	depGraph := &provisioningv1alpha1.DependencyGraph{}
+	err := r.Get(ctx, req.NamespacedName, depGraph)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			logger.Info("No DependencyGraph resources not found.")
+			logger.Info("The DependencyGraph resource was not found. It must have been deleted.")
+
+			// Stop the goroutine handling this resource
+			r.scheduled.Delete(req.NamespacedName)
+
 			return ctrl.Result{}, nil
 		}
-		// Error reading the objects - requeue the request.
-		logger.Error(err, "Failed to get list of dependencygraph resources.")
+
+		// Error reading the object - requeue the request.
+		logger.Error(err, "Failed to get dependencygraph resource.")
 		return ctrl.Result{}, err
 	}
+
+	// For every node check that at a service exists
+	shouldRequeue := false
+	for _, node := range depGraph.Spec.Nodes {
+		service := &corev1.Service{}
+		err := r.Get(ctx, types.NamespacedName{Name: node.FunctionName}, service)
+		if err != nil {
+			if apierrors.IsNotFound(err) {
+				logger.Error(err, "Could not find service %s tracked by the dependency graph.", node.FunctionName)
+				// If service is not found, keep walking through the graph just to log any other potentially missing services (?)
+				shouldRequeue = true
+				continue
+			}
+			// An unexpected error occurred: end and requeue reconciliation immediately
+			logger.Error(err, "Failed to get service named %s", node.FunctionName)
+			return ctrl.Result{}, err
+		}
+	}
+	// If the reconciliation needs to be requeued, end and do so
+	if shouldRequeue {
+		return ctrl.Result{Requeue: true}, nil
+	}
+
+	// Instantiate or update and re-instantiate the process that handles the graph (logic controller)
+	if _, ok := r.scheduled.Get(req.NamespacedName); ok {
+		// It was already scheduled so the resource has changed
+		// not sure if I need to do anything specific here
+		r.scheduled.Delete(req.NamespacedName)
+	}
+
+	// Schedule new goroutine
+	stopCh := scheduleAggregate(depGraph.Spec)
+	r.scheduled.Set(req.NamespacedName, stopCh)
 
 	return ctrl.Result{}, nil
 }
@@ -73,4 +126,31 @@ func (r *DependencyGraphReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&provisioningv1alpha1.DependencyGraph{}).
 		Named("dependencygraph").
 		Complete(r)
+}
+
+func (r *DependencyGraphReconciler) StopGracefully() {
+	r.scheduled.Clear()
+}
+
+func scheduleAggregate(graph provisioningv1alpha1.DependencyGraphSpec) chan struct{} {
+	stopCh := make(chan struct{})
+
+	nodes := buildLeafFirstTree(graph.Nodes)
+
+	aggregateClosure := func() {
+		for _, node := range nodes {
+
+			// TODO: do stuff here
+			println(node.FunctionName)
+		}
+	}
+
+	// TODO: this is running every second for no particular reason, I should probably define a config at either controller or graph level
+	wait.Until(aggregateClosure, time.Second, stopCh)
+
+	return stopCh
+}
+
+func buildLeafFirstTree(nodes []provisioningv1alpha1.FunctionNode) []provisioningv1alpha1.FunctionNode {
+	return nodes
 }

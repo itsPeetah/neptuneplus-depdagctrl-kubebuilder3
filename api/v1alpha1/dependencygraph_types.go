@@ -17,7 +17,6 @@ limitations under the License.
 package v1alpha1
 
 import (
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -55,7 +54,7 @@ type DependencyGraphStatus struct {
 	// Important: Run "make" to regenerate code after modifying this file
 
 	// Services that implement the functions described in this graph
-	Services []corev1.ObjectReference `json:"services"` // TODO this might maybe be "corev1.Service"?
+	// Services []corev1.ObjectReference `json:"services"` // TODO this might maybe be "corev1.Service"?
 }
 
 // +kubebuilder:object:root=true
