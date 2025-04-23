@@ -1,0 +1,9 @@
+apiVersion: provisioning.pgmp.me/v1alpha1
+kind: DependencyGraph
+metadata:
+  labels:
+    app.kubernetes.io/name: thesis-test
+    app.kubernetes.io/managed-by: kustomize
+  name: dependencygraph-sample
+spec:
+  # TODO(user): Add fields here

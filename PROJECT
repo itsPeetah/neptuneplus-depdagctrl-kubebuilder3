@@ -7,4 +7,14 @@ layout:
 - go.kubebuilder.io/v4
 projectName: thesis-test
 repo: github.com/itspeetah/thesis-test
+resources:
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: pgmp.me
+  group: provisioning
+  kind: DependencyGraph
+  path: github.com/itspeetah/thesis-test/api/v1alpha1
+  version: v1alpha1
 version: "3"
