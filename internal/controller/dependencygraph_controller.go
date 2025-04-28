@@ -114,7 +114,7 @@ func (r *DependencyGraphReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	}
 
 	// Schedule new goroutine
-	stopCh := scheduleAggregate(depGraph.Spec)
+	stopCh := scheduleAggregate(r.Client, depGraph.Spec)
 	r.scheduled.Set(req.NamespacedName, stopCh)
 
 	return ctrl.Result{}, nil
@@ -132,18 +132,11 @@ func (r *DependencyGraphReconciler) StopGracefully() {
 	r.scheduled.Clear()
 }
 
-func scheduleAggregate(graph provisioningv1alpha1.DependencyGraphSpec) chan struct{} {
+func scheduleAggregate(client client.Client, graph provisioningv1alpha1.DependencyGraphSpec) chan struct{} {
 	stopCh := make(chan struct{})
 
 	nodes := buildLeafFirstTree(graph.Nodes)
-
-	aggregateClosure := func() {
-		for _, node := range nodes {
-
-			// TODO: do stuff here
-			println(node.FunctionName)
-		}
-	}
+	aggregateClosure := buildMetricAggregator(client, nodes)
 
 	// TODO: this is running every second for no particular reason, I should probably define a config at either controller or graph level
 	wait.Until(aggregateClosure, time.Second, stopCh)
@@ -151,6 +144,95 @@ func scheduleAggregate(graph provisioningv1alpha1.DependencyGraphSpec) chan stru
 	return stopCh
 }
 
+// I don't think this is particularly optimized, but it's not running often and the code that I got Gemini to generate for me was utter trash
 func buildLeafFirstTree(nodes []provisioningv1alpha1.FunctionNode) []provisioningv1alpha1.FunctionNode {
-	return nodes
+
+	// NodeName -> NodeIndex
+	remainingNodeIndices := make(map[string]int)
+	for index, node := range nodes {
+		remainingNodeIndices[node.FunctionName] = index
+	}
+
+	calculateOutDegrees := func() map[string]int {
+		outDegrees := make(map[string]int)
+		// initialize at 0
+		for nodeName, indexInArray := range remainingNodeIndices {
+			node := nodes[indexInArray]
+			outDegrees[nodeName] = 0
+			// increase outdegree only if invoked node has not been "sorted" yet
+			for _, edge := range node.Invocations {
+				_, ok := remainingNodeIndices[edge.FunctionName]
+				if ok {
+					outDegrees[nodeName]++
+				}
+			}
+		}
+		return outDegrees
+	}
+
+	// Get "current" leaves (nodes with outdegree 0 in the current scenario, i.e. with already sorted nodes excluded from the pool)
+	getCurrentLeaves := func(outDegreeMap map[string]int) []string {
+		leaves := []string{}
+		for nodeName, degree := range outDegreeMap {
+			if degree == 0 {
+				leaves = append(leaves, nodeName)
+			}
+		}
+		return leaves
+	}
+
+	sortedNodes := []provisioningv1alpha1.FunctionNode{}
+
+	iterations := 0 // just to make sure that I don't run into an infinite loop: there should never be more iterations than nodes
+	limit := len(nodes)
+	for len(sortedNodes) < limit && iterations <= limit {
+		outDegree := calculateOutDegrees()
+		leaves := getCurrentLeaves(outDegree)
+
+		for _, leafName := range leaves {
+			sortedNodes = append(sortedNodes, nodes[remainingNodeIndices[leafName]])
+			// remove current node from pool of nodes that still need to be sorted
+			delete(remainingNodeIndices, leafName)
+		}
+
+		iterations++
+	}
+
+	if len(sortedNodes) != len(nodes) {
+		return []provisioningv1alpha1.FunctionNode{}
+	}
+
+	return sortedNodes
+}
+
+// TODO: still missing client implementation, but I do need to not depend on the context...???
+func buildMetricAggregator(client client.Client, nodes []provisioningv1alpha1.FunctionNode) func() {
+
+	aggregateClosure := func() {
+
+		functionResponseTime := make(map[string]float64) // TODO: Figure out proper numeric types
+		functionServiceCount := make(map[string]int)
+
+		for _, node := range nodes {
+			functionResponseTime[node.FunctionName] = 0
+			functionServiceCount[node.FunctionName] = 0
+
+			// MISSING: get response times for every pod implementing this service
+		}
+
+		// Average out fetched response times
+		for function, sum := range functionResponseTime {
+			functionResponseTime[function] = sum / float64(functionServiceCount[function])
+		}
+
+		for _, node := range nodes {
+			var aggregateExternalResponseTime float64 = 0
+			for _, edge := range node.Invocations {
+				aggregateExternalResponseTime += functionResponseTime[edge.FunctionName]
+			}
+
+			// MISSING: publish external response time for service to metrics database
+		}
+	}
+	return aggregateClosure
 }
