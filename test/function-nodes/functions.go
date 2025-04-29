@@ -1,4 +1,4 @@
-package functionnodes
+package functionnodestest_test
 
 // I don't think this is particularly optimized, but it's not running often and the code that I got Gemini to generate for me was utter trash
 func BuildLeafFirstTree(nodes []FunctionNode) []FunctionNode {
