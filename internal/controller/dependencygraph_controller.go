@@ -25,6 +25,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 
+	corev1listers "k8s.io/client-go/listers/core/v1"
+
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -36,16 +38,9 @@ import (
 // DependencyGraphReconciler reconciles a DependencyGraph object
 type DependencyGraphReconciler struct {
 	client.Client
-	Scheme    *runtime.Scheme
-	scheduled StopSignalTable
-}
-
-func NewDependencyGraphReconciler(client client.Client, scheme *runtime.Scheme) *DependencyGraphReconciler {
-	return &DependencyGraphReconciler{
-		Client:    client,
-		Scheme:    scheme,
-		scheduled: *NewStopSignalTable(),
-	}
+	Scheme        *runtime.Scheme
+	scheduled     StopSignalTable
+	serviceLister corev1listers.ServiceLister
 }
 
 // +kubebuilder:rbac:groups=provisioning.pgmp.me,resources=dependencygraphs,verbs=get;list;watch;create;update;patch;delete
@@ -89,6 +84,7 @@ func (r *DependencyGraphReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	for _, node := range depGraph.Spec.Nodes {
 		service := &corev1.Service{}
 		err := r.Get(ctx, types.NamespacedName{Name: node.FunctionName}, service)
+
 		if err != nil {
 			if apierrors.IsNotFound(err) {
 				logger.Error(err, "Could not find service %s tracked by the dependency graph.", node.FunctionName)
@@ -122,6 +118,18 @@ func (r *DependencyGraphReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *DependencyGraphReconciler) SetupWithManager(mgr ctrl.Manager) error {
+
+	r.scheduled = *NewStopSignalTable()
+
+	// TODO Add service lister
+
+	// serviceInformer, err := mgr.GetCache().GetInformer(context.Background(), &corev1.Service{})
+	// if err != nil {
+	// 	return err
+	// }
+
+	// r.serviceLister = corev1listers.NewServiceLister(serviceInformer.GetLister())
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&provisioningv1alpha1.DependencyGraph{}).
 		Named("dependencygraph").

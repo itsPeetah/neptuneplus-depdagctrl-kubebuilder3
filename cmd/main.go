@@ -202,18 +202,18 @@ func main() {
 		os.Exit(1)
 	}
 
-	reconciler := controller.NewDependencyGraphReconciler(
-		mgr.GetClient(),
-		mgr.GetScheme(),
-	)
-
-	defer reconciler.StopGracefully()
+	reconciler := &controller.DependencyGraphReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}
 
 	if err = (reconciler).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "DependencyGraph")
 		os.Exit(1)
 	}
 	// +kubebuilder:scaffold:builder
+
+	defer reconciler.StopGracefully()
 
 	if metricsCertWatcher != nil {
 		setupLog.Info("Adding metrics certificate watcher to manager")
