@@ -1,4 +1,4 @@
-module github.com/itspeetah/thesis-test
+module github.com/itspeetah/depdag-controller
 
 go 1.24.0
 
