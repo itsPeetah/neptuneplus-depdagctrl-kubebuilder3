@@ -1,4 +1,4 @@
-module github.com/itspeetah/depdag-controller
+module github.com/itspeetah/neptune-depdag-controller
 
 go 1.24.0
 

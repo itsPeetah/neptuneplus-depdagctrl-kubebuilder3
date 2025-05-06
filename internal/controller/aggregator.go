@@ -1,7 +1,7 @@
 package controller
 
 import (
-	provisioningv1alpha1 "github.com/itspeetah/thesis-test/api/v1alpha1"
+	provisioningv1alpha1 "github.com/itspeetah/neptune-depdag-controller/api/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 

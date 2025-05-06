@@ -37,8 +37,8 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
-	provisioningv1alpha1 "github.com/itspeetah/thesis-test/api/v1alpha1"
-	"github.com/itspeetah/thesis-test/internal/controller"
+	provisioningv1alpha1 "github.com/itspeetah/neptune-depdag-controller/api/v1alpha1"
+	"github.com/itspeetah/neptune-depdag-controller/internal/controller"
 	// +kubebuilder:scaffold:imports
 )
 

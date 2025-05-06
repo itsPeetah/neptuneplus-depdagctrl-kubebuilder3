@@ -6,7 +6,7 @@ domain: pgmp.me
 layout:
 - go.kubebuilder.io/v4
 projectName: depdag-controller
-repo: github.com/itspeetah/depdag-controller
+repo: github.com/itspeetah/neptune-depdag-controller
 resources:
 - api:
     crdVersion: v1
@@ -15,6 +15,6 @@ resources:
   domain: pgmp.me
   group: provisioning
   kind: DependencyGraph
-  path: github.com/itspeetah/depdag-controller/api/v1alpha1
+  path: github.com/itspeetah/neptune-depdag-controller/api/v1alpha1
   version: v1alpha1
 version: "3"
