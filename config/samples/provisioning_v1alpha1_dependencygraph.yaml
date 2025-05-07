@@ -5,5 +5,23 @@ metadata:
     app.kubernetes.io/name: depdag-controller
     app.kubernetes.io/managed-by: kustomize
   name: dependencygraph-sample
+  namespace: default # Specify the namespace where you want to create this resource
 spec:
-  # TODO(user): Add fields here
+  nodes:
+  - functionName: frontend
+    invocations:
+    - edgeId: 1
+      edgeMultiplier: 1
+      functionName: userservice
+    - edgeId: 1
+      edgeMultiplier: 2
+      functionName: cacheservice
+  - functionName: userservice
+    invocations:
+    - edgeId: 2
+      edgeMultiplier: 1
+      functionName: database
+  - functionName: cacheservice
+    invocations: []
+  - functionName: database
+    invocations: []

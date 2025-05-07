@@ -2,6 +2,7 @@ package controller
 
 import (
 	provisioningv1alpha1 "github.com/itspeetah/neptune-depdag-controller/api/v1alpha1"
+	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -82,6 +83,8 @@ func sortNodesByDependencies(nodes []provisioningv1alpha1.FunctionNode) []provis
 
 func (a *Aggregator) aggregate(client client.Client) {
 
+	klog.Info("Aggregating graph times")
+
 	// Phase 1: get average pod response time for each function in the graph
 	functionResponseTimes := make(map[string]float64)
 	functionPodCount := make(map[string]int)
@@ -90,6 +93,7 @@ func (a *Aggregator) aggregate(client client.Client) {
 		functionPodCount[node.FunctionName] = 0
 
 		// TODO Implement metric getter
+		klog.Infof("Getting all metrics for pods for function %s", node.FunctionName)
 
 		// Get Pods for Service{node.FunctionName}
 		// // Foreach Pod: get latest response time
@@ -101,6 +105,9 @@ func (a *Aggregator) aggregate(client client.Client) {
 	// Phase 2: aggregate edge times
 	graphEdgeAggregations := make(map[int32]float64)
 	for _, node := range a.dependencyGraphNodes {
+
+		klog.Infof("Aggregating invocaton edges for node: %s", node.FunctionName)
+
 		for _, edge := range node.Invocations {
 			currFunctionEdgeValue := functionResponseTimes[edge.FunctionName] * float64(edge.EdgeMultiplier)
 			if val, ok := graphEdgeAggregations[edge.EdgeId]; ok {
@@ -117,6 +124,9 @@ func (a *Aggregator) aggregate(client client.Client) {
 	// TODO: this could be integrated in the same loop for phase 2
 	nodeExternalResponseTimes := make(map[string]float64)
 	for _, node := range a.dependencyGraphNodes {
+
+		klog.Infof("Calculating external time for node: %s", node.FunctionName)
+
 		// If the node is a leaf, external response time is zero :)
 		if len(node.Invocations) < 1 {
 			nodeExternalResponseTimes[node.FunctionName] = 0
@@ -137,6 +147,8 @@ func (a *Aggregator) aggregate(client client.Client) {
 			_ = functionName
 			_ = externalResponseTime
 		)
+
+		klog.Infof("Publishing metrics for node: %s", functionName)
 
 		// TODO: there are three options
 		/*
