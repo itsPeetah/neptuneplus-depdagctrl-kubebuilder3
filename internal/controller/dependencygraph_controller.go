@@ -66,6 +66,7 @@ func (r *DependencyGraphReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 			logger.Info("The DependencyGraph resource was not found. It must have been deleted.")
 
 			// Stop the goroutine handling this resource
+			// TODO Hook this up with finalizers
 			logger.Info(fmt.Sprintf("Stopping aggregator for graph %s...", req.NamespacedName))
 			r.scheduled.Delete(req.NamespacedName)
 			logger.Info(fmt.Sprintf("Stopped aggregator for graph %s...", req.NamespacedName))
