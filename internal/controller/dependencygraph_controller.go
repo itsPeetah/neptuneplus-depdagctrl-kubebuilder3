@@ -18,11 +18,10 @@ package controller
 
 import (
 	"context"
+	"fmt"
 	"time"
 
-	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -55,6 +54,7 @@ type DependencyGraphReconciler struct {
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.20.4/pkg/reconcile
 func (r *DependencyGraphReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := logf.FromContext(ctx)
+	logger.Info("--------------- RECONCILE ---------------")
 
 	// TODO(user): your logic here
 
@@ -66,7 +66,9 @@ func (r *DependencyGraphReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 			logger.Info("The DependencyGraph resource was not found. It must have been deleted.")
 
 			// Stop the goroutine handling this resource
+			logger.Info(fmt.Sprintf("Stopping aggregator for graph %s...", req.NamespacedName))
 			r.scheduled.Delete(req.NamespacedName)
+			logger.Info(fmt.Sprintf("Stopped aggregator for graph %s...", req.NamespacedName))
 
 			return ctrl.Result{}, nil
 		}
@@ -76,28 +78,28 @@ func (r *DependencyGraphReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		return ctrl.Result{}, err
 	}
 
-	// For every node check that at a service exists
-	shouldRequeue := false
-	for _, node := range depGraph.Spec.Nodes {
-		service := &corev1.Service{}
-		err := r.Get(ctx, types.NamespacedName{Name: node.FunctionName}, service)
+	// // For every node check that at a service exists
+	// shouldRequeue := false
+	// for _, node := range depGraph.Spec.Nodes {
+	// 	service := &corev1.Service{}
+	// 	err := r.Get(ctx, types.NamespacedName{Name: node.FunctionName}, service)
 
-		if err != nil {
-			if apierrors.IsNotFound(err) {
-				logger.Error(err, "Could not find service %s tracked by the dependency graph.", node.FunctionName)
-				// If service is not found, keep walking through the graph just to log any other potentially missing services (?)
-				shouldRequeue = true
-				continue
-			}
-			// An unexpected error occurred: end and requeue reconciliation immediately
-			logger.Error(err, "Failed to get service named %s", node.FunctionName)
-			return ctrl.Result{}, err
-		}
-	}
-	// If the reconciliation needs to be requeued, end and do so
-	if shouldRequeue {
-		return ctrl.Result{Requeue: true}, nil
-	}
+	// 	if err != nil {
+	// 		if apierrors.IsNotFound(err) {
+	// 			logger.Error(err, "Could not find service %s tracked by the dependency graph.", node.FunctionName)
+	// 			// If service is not found, keep walking through the graph just to log any other potentially missing services (?)
+	// 			shouldRequeue = true
+	// 			continue
+	// 		}
+	// 		// An unexpected error occurred: end and requeue reconciliation immediately
+	// 		logger.Error(err, "Failed to get service named %s", node.FunctionName)
+	// 		return ctrl.Result{}, err
+	// 	}
+	// }
+	// // If the reconciliation needs to be requeued, end and do so
+	// if shouldRequeue {
+	// 	return ctrl.Result{Requeue: true}, nil
+	// }
 
 	// Instantiate or update and re-instantiate the process that handles the graph (logic controller)
 	if _, ok := r.scheduled.Get(req.NamespacedName); ok {
@@ -107,8 +109,15 @@ func (r *DependencyGraphReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	}
 
 	// Schedule new goroutine
-	stopCh := scheduleAggregate(r.Client, depGraph.Spec)
+
+	logger.Info(fmt.Sprintf("Scheduling aggregator for graph %s...", req.NamespacedName))
+
+	stopCh := make(chan struct{})
+	aggregator := NewAggregator(depGraph, r.Client)
+	go wait.Until(aggregator.aggregate, 3*time.Second, stopCh) // Set up proper config for how often this should run
 	r.scheduled.Set(req.NamespacedName, stopCh)
+
+	logger.Info(fmt.Sprintf("Scheduled aggregator for graph %s.", req.NamespacedName))
 
 	return ctrl.Result{}, nil
 }
@@ -125,19 +134,4 @@ func (r *DependencyGraphReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 func (r *DependencyGraphReconciler) StopGracefully() {
 	r.scheduled.Clear()
-}
-
-func scheduleAggregate(client client.Client, graph provisioningv1alpha1.DependencyGraphSpec) chan struct{} {
-	stopCh := make(chan struct{})
-
-	aggregator := NewAggregator(graph)
-
-	aggregateClosure := func() {
-		aggregator.aggregate(client)
-	}
-
-	// TODO: this is running every second for no particular reason, I should probably define a config at either controller or graph level
-	wait.Until(aggregateClosure, time.Second, stopCh)
-
-	return stopCh
 }

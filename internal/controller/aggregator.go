@@ -6,17 +6,19 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-type DependencyGraphSpec = provisioningv1alpha1.DependencyGraphSpec
+type DependencyGraph = provisioningv1alpha1.DependencyGraph
 type FunctionNode = provisioningv1alpha1.FunctionNode
 
 type Aggregator struct {
-	dependencyGraphNodes []FunctionNode
+	client client.Client
+	nodes  []FunctionNode
 }
 
-func NewAggregator(dag DependencyGraphSpec) *Aggregator {
+func NewAggregator(dag *DependencyGraph, client client.Client) *Aggregator {
 
 	return &Aggregator{
-		dependencyGraphNodes: sortNodesByDependencies(dag.Nodes), // TODO: Maybe deepcopy?
+		client: client,
+		nodes:  sortNodesByDependencies(dag.Spec.Nodes), // TODO: Maybe deepcopy?
 	}
 }
 
@@ -81,19 +83,16 @@ func sortNodesByDependencies(nodes []provisioningv1alpha1.FunctionNode) []provis
 	return sortedNodes
 }
 
-func (a *Aggregator) aggregate(client client.Client) {
+func (a *Aggregator) aggregate() {
 
 	klog.Info("Aggregating graph times")
 
 	// Phase 1: get average pod response time for each function in the graph
 	functionResponseTimes := make(map[string]float64)
 	functionPodCount := make(map[string]int)
-	for _, node := range a.dependencyGraphNodes {
+	for _, node := range a.nodes {
 		functionResponseTimes[node.FunctionName] = 0
 		functionPodCount[node.FunctionName] = 0
-
-		// TODO Implement metric getter
-		klog.Infof("Getting all metrics for pods for function %s", node.FunctionName)
 
 		// Get Pods for Service{node.FunctionName}
 		// // Foreach Pod: get latest response time
@@ -104,10 +103,7 @@ func (a *Aggregator) aggregate(client client.Client) {
 
 	// Phase 2: aggregate edge times
 	graphEdgeAggregations := make(map[int32]float64)
-	for _, node := range a.dependencyGraphNodes {
-
-		klog.Infof("Aggregating invocaton edges for node: %s", node.FunctionName)
-
+	for _, node := range a.nodes {
 		for _, edge := range node.Invocations {
 			currFunctionEdgeValue := functionResponseTimes[edge.FunctionName] * float64(edge.EdgeMultiplier)
 			if val, ok := graphEdgeAggregations[edge.EdgeId]; ok {
@@ -123,10 +119,7 @@ func (a *Aggregator) aggregate(client client.Client) {
 	// Phase 3: calculate external times
 	// TODO: this could be integrated in the same loop for phase 2
 	nodeExternalResponseTimes := make(map[string]float64)
-	for _, node := range a.dependencyGraphNodes {
-
-		klog.Infof("Calculating external time for node: %s", node.FunctionName)
-
+	for _, node := range a.nodes {
 		// If the node is a leaf, external response time is zero :)
 		if len(node.Invocations) < 1 {
 			nodeExternalResponseTimes[node.FunctionName] = 0
@@ -147,8 +140,6 @@ func (a *Aggregator) aggregate(client client.Client) {
 			_ = functionName
 			_ = externalResponseTime
 		)
-
-		klog.Infof("Publishing metrics for node: %s", functionName)
 
 		// TODO: there are three options
 		/*
