@@ -7,6 +7,7 @@ metadata:
   name: dependencygraph-sample
   namespace: default # Specify the namespace where you want to create this resource
 spec:
+  functionNamespace: "example"
   nodes:
   - functionName: frontend
     invocations:

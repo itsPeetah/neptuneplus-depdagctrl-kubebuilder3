@@ -21,15 +21,15 @@ import (
 	"fmt"
 	"time"
 
+	aggregator "github.com/itspeetah/neptune-depdag-controller/aggregator"
+	provisioningv1alpha1 "github.com/itspeetah/neptune-depdag-controller/api/v1alpha1"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/util/wait"
-
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/wait"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
-
-	provisioningv1alpha1 "github.com/itspeetah/neptune-depdag-controller/api/v1alpha1"
 )
 
 // DependencyGraphReconciler reconciles a DependencyGraph object
@@ -42,6 +42,8 @@ type DependencyGraphReconciler struct {
 // +kubebuilder:rbac:groups=provisioning.pgmp.me,resources=dependencygraphs,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=provisioning.pgmp.me,resources=dependencygraphs/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=provisioning.pgmp.me,resources=dependencygraphs/finalizers,verbs=update
+
+// +kubebuilder:rbac:groups=core,resources=services;pods,verbs=get;list;watch;
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -79,6 +81,18 @@ func (r *DependencyGraphReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		return ctrl.Result{}, err
 	}
 
+	// List services matching specific labels
+	labeledServiceList := &corev1.ServiceList{}
+	err = r.List(ctx, labeledServiceList, client.InNamespace(depGraph.ObjectMeta.Namespace))
+	if err != nil {
+		logger.Error(err, "failed to list services with labels")
+		return ctrl.Result{}, err
+	}
+	logger.Info("found labeled services", "count", len(labeledServiceList.Items), "namespace", "another-namespace", "labels", "app=my-app")
+	for _, svc := range labeledServiceList.Items {
+		logger.Info("found labeled service", "name", svc.Name)
+	}
+
 	// // For every node check that at a service exists
 	// shouldRequeue := false
 	// for _, node := range depGraph.Spec.Nodes {
@@ -114,8 +128,8 @@ func (r *DependencyGraphReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	logger.Info(fmt.Sprintf("Scheduling aggregator for graph %s...", req.NamespacedName))
 
 	stopCh := make(chan struct{})
-	aggregator := NewAggregator(depGraph, r.Client)
-	go wait.Until(aggregator.aggregate, 3*time.Second, stopCh) // Set up proper config for how often this should run
+	aggr := aggregator.NewAggregator(depGraph, r.Client)
+	go wait.Until(aggr.Aggregate, 3*time.Second, stopCh) // Set up proper config for how often this should run
 	r.scheduled.Set(req.NamespacedName, stopCh)
 
 	logger.Info(fmt.Sprintf("Scheduled aggregator for graph %s.", req.NamespacedName))
@@ -129,6 +143,18 @@ func (r *DependencyGraphReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	r.scheduled = *NewStopSignalTable()
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&provisioningv1alpha1.DependencyGraph{}).
+		// Watches(
+		// 	&corev1.Service{},
+		// 	handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
+		// 		return []reconcile.Request{}
+		// 	}),
+		// ).
+		// Watches(
+		// 	&corev1.Pod{},
+		// 	handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
+		// 		return []reconcile.Request{}
+		// 	}),
+		// ).
 		Named("dependencygraph").
 		Complete(r)
 }
