@@ -30,16 +30,16 @@ func (t *StopSignalTable) Set(name types.NamespacedName, stopCh chan struct{}) {
 
 func (t *StopSignalTable) Delete(name types.NamespacedName) {
 	if stopCh, ok := t.Get(name); ok {
-		close(stopCh) // Signal the goroutine to stop
+		close(stopCh)
 	}
 	t.signals.Delete(name)
 }
 
-// StopAll stops all recurring functions and clears the table.
+// Stops all recurring functions and clears the table.
 func (t *StopSignalTable) Clear() {
 	t.signals.Range(func(key, value interface{}) bool {
-		name := key.(types.NamespacedName) // Assert the key type
+		name := key.(types.NamespacedName)
 		t.Delete(name)
-		return true // Continue iteration
+		return true // continue iteration
 	})
 }

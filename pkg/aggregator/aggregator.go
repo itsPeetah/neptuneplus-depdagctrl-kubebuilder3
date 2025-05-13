@@ -3,7 +3,6 @@ package aggregator
 import (
 	provisioningv1alpha1 "github.com/itspeetah/neptune-depdag-controller/api/v1alpha1"
 	sametrics "github.com/itspeetah/neptune-depdag-controller/pkg/metrics"
-	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -26,49 +25,48 @@ func NewAggregator(dag *DependencyGraph, client client.Client, metricClient same
 
 func (a *Aggregator) Aggregate() {
 
-	klog.Info("Aggregating graph times")
-
-	// Phase 1: get average pod response time for each function in the graph
-	functionResponseTimes := make(map[string]int64)
+	// Derive average function response time from available metrics
+	avgFunctionRTs := make(map[string]int64)
 	for _, node := range a.nodes {
-		averageRt := a.getFunctionResponseTime(node.FunctionName, node.FunctionNamespace)
-		functionResponseTimes[node.FunctionName] = averageRt
+		sum, count := a.getFunctionMetric(node.FunctionName, node.FunctionNamespace)
+		avgFunctionRTs[node.FunctionName] = sum.Value.MilliValue() / int64(count)
 	}
 
-	// Phase 2: aggregate edge times
-	graphEdgeAggregations := make(map[int32]int64)
+	// Calculate edge aggregate response time minding invocation mode
+	avgEdgeRTs := make(map[int32]int64)
 	for _, node := range a.nodes {
 		for _, edge := range node.Invocations {
-			currFunctionEdgeValue := functionResponseTimes[edge.FunctionName] * int64(edge.EdgeMultiplier)
-			if val, ok := graphEdgeAggregations[edge.EdgeId]; ok {
+			currFunctionEdgeValue := avgFunctionRTs[edge.FunctionName] * int64(edge.EdgeMultiplier)
+			if val, ok := avgEdgeRTs[edge.EdgeId]; ok {
 				// If edge id was already seen it means this is a parallel call, so we take the slower time
-				graphEdgeAggregations[edge.EdgeId] = max(val, currFunctionEdgeValue)
+				avgEdgeRTs[edge.EdgeId] = max(val, currFunctionEdgeValue)
 			} else {
 				// This is either a sequential call or the first time we see a parallel call (therefore this is the slower so far)
-				graphEdgeAggregations[edge.EdgeId] = currFunctionEdgeValue
+				avgEdgeRTs[edge.EdgeId] = currFunctionEdgeValue
 			}
 		}
 	}
 
-	// Phase 3: calculate external times
-	// TODO: this could be integrated in the same loop for phase 2
-	nodeExternalResponseTimes := make(map[string]int64)
+	// Calculate average external response time for every function
+	functionExtRTs := make(map[string]int64)
 	for _, node := range a.nodes {
-		// If the node is a leaf, external response time is zero :)
 		if len(node.Invocations) < 1 {
-			nodeExternalResponseTimes[node.FunctionName] = 0
+			// If the node is a leaf, external response time is zero :)
+			functionExtRTs[node.FunctionName] = 0
 			continue
 		}
 
 		var sum int64 = 0
 		for _, edge := range node.Invocations {
-			sum += graphEdgeAggregations[edge.EdgeId]
+			sum += avgEdgeRTs[edge.EdgeId]
+			// mark edge as already counted to avoid counting it multiple times for parallel invocations
+			avgEdgeRTs[edge.EdgeId] = 0
 		}
-		nodeExternalResponseTimes[node.FunctionName] = sum
+		functionExtRTs[node.FunctionName] = sum
 	}
 
 	// Phase 4: publish times
-	for functionName, externalResponseTime := range nodeExternalResponseTimes {
+	for functionName, externalResponseTime := range functionExtRTs {
 		// TODO: missing metric publisher implementation (var block just to dismiss error for now)
 		var (
 			_ = functionName
