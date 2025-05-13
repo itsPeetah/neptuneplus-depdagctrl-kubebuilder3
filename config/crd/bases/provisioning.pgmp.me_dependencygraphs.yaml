@@ -48,6 +48,10 @@ spec:
                         is assigned to and it is used as a selector for the pods running
                         said function.
                       type: string
+                    functionNamespace:
+                      description: FunctionNamespace is the namespace of the invoked
+                        function
+                      type: string
                     invocations:
                       description: Invocations is the list of out-edges from the node
                         to invoked functions.
@@ -69,14 +73,20 @@ spec:
                               used as a pod/service selector. It should match the
                               function name in another node in the graph.
                             type: string
+                          functionNamespace:
+                            description: FunctionNamespace is the namespace of the
+                              invoked function
+                            type: string
                         required:
                         - edgeId
                         - edgeMultiplier
                         - functionName
+                        - functionNamespace
                         type: object
                       type: array
                   required:
                   - functionName
+                  - functionNamespace
                   - invocations
                   type: object
                 type: array

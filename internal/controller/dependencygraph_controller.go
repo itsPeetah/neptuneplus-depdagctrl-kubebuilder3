@@ -21,12 +21,15 @@ import (
 	"fmt"
 	"time"
 
-	aggregator "github.com/itspeetah/neptune-depdag-controller/aggregator"
 	provisioningv1alpha1 "github.com/itspeetah/neptune-depdag-controller/api/v1alpha1"
+	"github.com/itspeetah/neptune-depdag-controller/internal/controller/metrics"
+
+	"github.com/itspeetah/neptune-depdag-controller/internal/controller/aggregator"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
+
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -35,13 +38,16 @@ import (
 // DependencyGraphReconciler reconciles a DependencyGraph object
 type DependencyGraphReconciler struct {
 	client.Client
-	Scheme    *runtime.Scheme
-	scheduled StopSignalTable
+	Scheme        *runtime.Scheme
+	MetricsClient metrics.MetricGetter
+	scheduled     StopSignalTable
 }
 
 // +kubebuilder:rbac:groups=provisioning.pgmp.me,resources=dependencygraphs,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=provisioning.pgmp.me,resources=dependencygraphs/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=provisioning.pgmp.me,resources=dependencygraphs/finalizers,verbs=update
+
+// +kubebuilder:rbac:groups=custom.metrics.k8s.io,resources=pods/response_time,verbs=get
 
 // +kubebuilder:rbac:groups=core,resources=services;pods,verbs=get;list;watch;
 
@@ -128,7 +134,7 @@ func (r *DependencyGraphReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	logger.Info(fmt.Sprintf("Scheduling aggregator for graph %s...", req.NamespacedName))
 
 	stopCh := make(chan struct{})
-	aggr := aggregator.NewAggregator(depGraph, r.Client)
+	aggr := aggregator.NewAggregator(depGraph, r.Client, r.MetricsClient)
 	go wait.Until(aggr.Aggregate, 3*time.Second, stopCh) // Set up proper config for how often this should run
 	r.scheduled.Set(req.NamespacedName, stopCh)
 
@@ -139,22 +145,9 @@ func (r *DependencyGraphReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *DependencyGraphReconciler) SetupWithManager(mgr ctrl.Manager) error {
-
 	r.scheduled = *NewStopSignalTable()
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&provisioningv1alpha1.DependencyGraph{}).
-		// Watches(
-		// 	&corev1.Service{},
-		// 	handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
-		// 		return []reconcile.Request{}
-		// 	}),
-		// ).
-		// Watches(
-		// 	&corev1.Pod{},
-		// 	handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
-		// 		return []reconcile.Request{}
-		// 	}),
-		// ).
 		Named("dependencygraph").
 		Complete(r)
 }

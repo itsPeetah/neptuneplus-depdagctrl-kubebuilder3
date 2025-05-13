@@ -21,10 +21,13 @@ import (
 	"flag"
 	"os"
 	"path/filepath"
+	"time"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
+	"k8s.io/client-go/kubernetes"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
+	"k8s.io/client-go/tools/clientcmd"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -36,9 +39,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/metrics/filters"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
+	"sigs.k8s.io/custom-metrics-apiserver/pkg/dynamicmapper"
 
 	provisioningv1alpha1 "github.com/itspeetah/neptune-depdag-controller/api/v1alpha1"
 	"github.com/itspeetah/neptune-depdag-controller/internal/controller"
+	"github.com/itspeetah/neptune-depdag-controller/internal/controller/metrics"
+
+	metricsclient "k8s.io/metrics/pkg/client/custom_metrics"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -202,9 +209,28 @@ func main() {
 		os.Exit(1)
 	}
 
+	config, err := clientcmd.BuildConfigFromFlags("", "")
+	if err != nil {
+		setupLog.Error(err, "Error getting clientcmd config")
+		os.Exit(1)
+	}
+
+	kubernetesClient, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		setupLog.Error(err, "Error getting kubernets client")
+		os.Exit(1)
+	}
+
+	mapper, err := dynamicmapper.NewRESTMapper(kubernetesClient, time.Second)
+	if err != nil {
+		setupLog.Error(err, "Error building REST Mapper:")
+		os.Exit(1)
+	}
+
 	reconciler := &controller.DependencyGraphReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
+		Client:        mgr.GetClient(),
+		Scheme:        mgr.GetScheme(),
+		MetricsClient: metrics.NewDefaultGetter(config, mapper, metricsclient.NewAvailableAPIsGetter(kubernetesClient)),
 	}
 
 	if err = (reconciler).SetupWithManager(mgr); err != nil {

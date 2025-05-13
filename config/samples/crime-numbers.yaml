@@ -2,12 +2,12 @@ apiVersion: provisioning.pgmp.me/v1alpha1
 kind: DependencyGraph
 metadata:
   labels:
-    app.kubernetes.io/name: depdag-controller
+    app.kubernetes.io/name: cepdag-controller
     app.kubernetes.io/managed-by: kustomize
-  name: depdag-prime-numbers
+  name: depdag-crime-numbers
   namespace: openfaas-fn # Specify the namespace where you want to create this resource
 spec:
   nodes:
-  - functionName: prime-numbers
+  - functionName: crime-numbers
     functionNamespace: openfaas-fn
     invocations: []

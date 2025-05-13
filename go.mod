@@ -15,10 +15,13 @@ require (
 	sigs.k8s.io/controller-runtime v0.20.4
 )
 
+require github.com/evanphx/json-patch v4.9.0+incompatible // indirect
+
+require sigs.k8s.io/custom-metrics-apiserver v1.32.0
+
 require (
 	cel.dev/expr v0.23.1 // indirect
 	github.com/antlr4-go/antlr/v4 v4.13.1 // indirect
-	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/blang/semver/v4 v4.0.0 // indirect
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
@@ -37,12 +40,10 @@ require (
 	github.com/go-openapi/swag v0.23.1 // indirect
 	github.com/go-task/slim-sprig/v3 v3.0.0 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
-	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/google/btree v1.1.3 // indirect
 	github.com/google/cel-go v0.25.0 // indirect
 	github.com/google/gnostic-models v0.6.9 // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
-	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/google/pprof v0.0.0-20250501235452-c0086092b71a // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.26.3 // indirect
@@ -94,7 +95,7 @@ require (
 	k8s.io/apiextensions-apiserver v0.33.0 // indirect
 	k8s.io/apiserver v0.33.0 // indirect
 	k8s.io/component-base v0.33.0 // indirect
-	k8s.io/klog/v2 v2.130.1 // indirect
+	k8s.io/klog/v2 v2.130.1
 	k8s.io/kube-openapi v0.0.0-20250318190949-c8a335a9a2ff // indirect
 	k8s.io/metrics v0.33.0
 	k8s.io/utils v0.0.0-20250502105355-0f33e8f1c979 // indirect

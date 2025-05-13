@@ -2,6 +2,7 @@ package aggregator
 
 import (
 	provisioningv1alpha1 "github.com/itspeetah/neptune-depdag-controller/api/v1alpha1"
+	sametrics "github.com/itspeetah/neptune-depdag-controller/internal/controller/metrics"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -10,14 +11,16 @@ type DependencyGraph = provisioningv1alpha1.DependencyGraph
 type FunctionNode = provisioningv1alpha1.FunctionNode
 
 type Aggregator struct {
-	client client.Client
-	nodes  []FunctionNode
+	client       client.Client
+	nodes        []FunctionNode
+	metricClient sametrics.MetricGetter
 }
 
-func NewAggregator(dag *DependencyGraph, client client.Client) *Aggregator {
+func NewAggregator(dag *DependencyGraph, client client.Client, metricClient sametrics.MetricGetter) *Aggregator {
 	return &Aggregator{
-		client: client,
-		nodes:  sortNodesByDependencies(dag.Spec.Nodes), // TODO: Maybe deepcopy?
+		client:       client,
+		metricClient: metricClient,
+		nodes:        sortNodesByDependencies(dag.Spec.Nodes), // TODO: Maybe deepcopy?
 	}
 }
 
@@ -26,24 +29,17 @@ func (a *Aggregator) Aggregate() {
 	klog.Info("Aggregating graph times")
 
 	// Phase 1: get average pod response time for each function in the graph
-	functionResponseTimes := make(map[string]float64)
-	functionPodCount := make(map[string]int)
+	functionResponseTimes := make(map[string]int64)
 	for _, node := range a.nodes {
-		functionResponseTimes[node.FunctionName] = 0
-		functionPodCount[node.FunctionName] = 0
-
-		// Get Pods for Service{node.FunctionName}
-		// // Foreach Pod: get latest response time
-	}
-	for functioName, _ := range functionResponseTimes {
-		functionResponseTimes[functioName] /= float64(functionPodCount[functioName])
+		averageRt := a.getFunctionResponseTime(node.FunctionName, node.FunctionNamespace)
+		functionResponseTimes[node.FunctionName] = averageRt
 	}
 
 	// Phase 2: aggregate edge times
-	graphEdgeAggregations := make(map[int32]float64)
+	graphEdgeAggregations := make(map[int32]int64)
 	for _, node := range a.nodes {
 		for _, edge := range node.Invocations {
-			currFunctionEdgeValue := functionResponseTimes[edge.FunctionName] * float64(edge.EdgeMultiplier)
+			currFunctionEdgeValue := functionResponseTimes[edge.FunctionName] * int64(edge.EdgeMultiplier)
 			if val, ok := graphEdgeAggregations[edge.EdgeId]; ok {
 				// If edge id was already seen it means this is a parallel call, so we take the slower time
 				graphEdgeAggregations[edge.EdgeId] = max(val, currFunctionEdgeValue)
@@ -56,7 +52,7 @@ func (a *Aggregator) Aggregate() {
 
 	// Phase 3: calculate external times
 	// TODO: this could be integrated in the same loop for phase 2
-	nodeExternalResponseTimes := make(map[string]float64)
+	nodeExternalResponseTimes := make(map[string]int64)
 	for _, node := range a.nodes {
 		// If the node is a leaf, external response time is zero :)
 		if len(node.Invocations) < 1 {
@@ -64,7 +60,7 @@ func (a *Aggregator) Aggregate() {
 			continue
 		}
 
-		sum := 0.0
+		var sum int64 = 0
 		for _, edge := range node.Invocations {
 			sum += graphEdgeAggregations[edge.EdgeId]
 		}
