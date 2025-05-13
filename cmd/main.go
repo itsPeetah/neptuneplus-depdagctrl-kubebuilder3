@@ -43,7 +43,7 @@ import (
 
 	provisioningv1alpha1 "github.com/itspeetah/neptune-depdag-controller/api/v1alpha1"
 	"github.com/itspeetah/neptune-depdag-controller/internal/controller"
-	"github.com/itspeetah/neptune-depdag-controller/internal/controller/metrics"
+	"github.com/itspeetah/neptune-depdag-controller/pkg/metrics"
 
 	metricsclient "k8s.io/metrics/pkg/client/custom_metrics"
 	// +kubebuilder:scaffold:imports

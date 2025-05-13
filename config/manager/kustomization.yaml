@@ -5,4 +5,4 @@ kind: Kustomization
 images:
 - name: controller
   newName: itspeetah/thesis-test
-  newTag: dev7
+  newTag: dev8

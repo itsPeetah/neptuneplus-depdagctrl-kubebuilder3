@@ -2,7 +2,7 @@ package aggregator
 
 import (
 	provisioningv1alpha1 "github.com/itspeetah/neptune-depdag-controller/api/v1alpha1"
-	sametrics "github.com/itspeetah/neptune-depdag-controller/internal/controller/metrics"
+	sametrics "github.com/itspeetah/neptune-depdag-controller/pkg/metrics"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )

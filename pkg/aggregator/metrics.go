@@ -3,7 +3,7 @@ package aggregator
 import (
 	"context"
 
-	"github.com/itspeetah/neptune-depdag-controller/internal/controller/metrics"
+	"github.com/itspeetah/neptune-depdag-controller/pkg/metrics"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/klog/v2"

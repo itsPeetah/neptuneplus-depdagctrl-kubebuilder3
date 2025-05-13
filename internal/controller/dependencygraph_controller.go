@@ -22,9 +22,10 @@ import (
 	"time"
 
 	provisioningv1alpha1 "github.com/itspeetah/neptune-depdag-controller/api/v1alpha1"
-	"github.com/itspeetah/neptune-depdag-controller/internal/controller/metrics"
+	"github.com/itspeetah/neptune-depdag-controller/pkg/metrics"
+	signals "github.com/itspeetah/neptune-depdag-controller/pkg/signals"
 
-	"github.com/itspeetah/neptune-depdag-controller/internal/controller/aggregator"
+	"github.com/itspeetah/neptune-depdag-controller/pkg/aggregator"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -40,7 +41,7 @@ type DependencyGraphReconciler struct {
 	client.Client
 	Scheme        *runtime.Scheme
 	MetricsClient metrics.MetricGetter
-	scheduled     StopSignalTable
+	scheduled     signals.StopSignalTable
 }
 
 // +kubebuilder:rbac:groups=provisioning.pgmp.me,resources=dependencygraphs,verbs=get;list;watch;create;update;patch;delete
@@ -145,7 +146,7 @@ func (r *DependencyGraphReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *DependencyGraphReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	r.scheduled = *NewStopSignalTable()
+	r.scheduled = *signals.NewStopSignalTable()
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&provisioningv1alpha1.DependencyGraph{}).
 		Named("dependencygraph").
