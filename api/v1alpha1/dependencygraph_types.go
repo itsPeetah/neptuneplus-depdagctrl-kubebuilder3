@@ -52,13 +52,21 @@ type DependencyGraphSpec struct {
 	Nodes []FunctionNode `json:"nodes"`
 }
 
+type NodeStatus struct {
+	// FunctionName is the name of the function
+	FunctionName string `json:"functionName"`
+	// FunctionNamespace is the namespace of the function
+	FunctionNamespace string `json:"functionNamespace"`
+	// ExternalResponseTime is the aggregated metric describing the average response time of the function's dependencies
+	ExternalResponseTime int64 `json:"externalResponseTime"`
+}
+
 // DependencyGraphStatus defines the observed state of DependencyGraph.
 type DependencyGraphStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	// Services that implement the functions described in this graph
-	// Services []corev1.ObjectReference `json:"services"` // TODO this might maybe be "corev1.Service"?
+	Nodes []NodeStatus `json:"nodes"`
 }
 
 // +kubebuilder:object:root=true

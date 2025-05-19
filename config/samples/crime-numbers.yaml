@@ -10,4 +10,13 @@ spec:
   nodes:
   - functionName: crime-numbers
     functionNamespace: openfaas-fn
+    invocations:
+    - functionName: prime-numbers
+      functionNamespace: openfaas-fn
+      edgeId: 1
+      edgeMultiplier: 1
+  - functionName: prime-numbers
+    functionNamespace: openfaas-fn
     invocations: []
+
+

@@ -22,14 +22,15 @@ import (
 	"time"
 
 	provisioningv1alpha1 "github.com/itspeetah/neptune-depdag-controller/api/v1alpha1"
+	"github.com/itspeetah/neptune-depdag-controller/pkg/aggregator"
 	"github.com/itspeetah/neptune-depdag-controller/pkg/metrics"
 	signals "github.com/itspeetah/neptune-depdag-controller/pkg/signals"
 
-	"github.com/itspeetah/neptune-depdag-controller/pkg/aggregator"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/klog/v2"
 
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -135,7 +136,7 @@ func (r *DependencyGraphReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	logger.Info(fmt.Sprintf("Scheduling aggregator for graph %s...", req.NamespacedName))
 
 	stopCh := make(chan struct{})
-	aggr := aggregator.NewAggregator(depGraph, r.Client, r.MetricsClient)
+	aggr := aggregator.NewAggregator(depGraph, r.Client, r.MetricsClient, r.UpdateGraphStatus)
 	go wait.Until(aggr.Aggregate, 3*time.Second, stopCh) // Set up proper config for how often this should run
 	r.scheduled.Set(req.NamespacedName, stopCh)
 
@@ -155,4 +156,11 @@ func (r *DependencyGraphReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 func (r *DependencyGraphReconciler) StopGracefully() {
 	r.scheduled.Clear()
+}
+
+func (r *DependencyGraphReconciler) UpdateGraphStatus(graph *provisioningv1alpha1.DependencyGraph) {
+	ctx := context.TODO()
+	if err := r.Status().Update(ctx, graph); err != nil {
+		klog.Error(err)
+	}
 }

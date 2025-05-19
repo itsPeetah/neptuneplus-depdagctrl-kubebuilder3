@@ -95,6 +95,29 @@ spec:
             type: object
           status:
             description: DependencyGraphStatus defines the observed state of DependencyGraph.
+            properties:
+              nodes:
+                items:
+                  properties:
+                    externalResponseTime:
+                      description: ExternalResponseTime is the aggregated metric describing
+                        the average response time of the function's dependencies
+                      format: int64
+                      type: integer
+                    functionName:
+                      description: FunctionName is the name of the function
+                      type: string
+                    functionNamespace:
+                      description: FunctionNamespace is the namespace of the function
+                      type: string
+                  required:
+                  - externalResponseTime
+                  - functionName
+                  - functionNamespace
+                  type: object
+                type: array
+            required:
+            - nodes
             type: object
         type: object
     served: true
