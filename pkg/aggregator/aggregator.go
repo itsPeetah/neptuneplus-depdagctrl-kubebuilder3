@@ -67,6 +67,7 @@ func (a *Aggregator) Aggregate() {
 		if len(node.Invocations) < 1 {
 			// If the node is a leaf, external response time is zero :)
 			functionExtRTs[node.FunctionNamespace+":"+node.FunctionName] = 0
+			klog.Infof("[ERT %s:%s] External response time for function: 0", node.FunctionNamespace, node.FunctionName)
 			continue
 		}
 
@@ -77,7 +78,7 @@ func (a *Aggregator) Aggregate() {
 			avgEdgeRTs[edge.EdgeId] = 0
 		}
 		functionExtRTs[node.FunctionNamespace+":"+node.FunctionName] = sum
-		klog.Infof("External response time for function %s:%s -----> %d", node.FunctionNamespace, node.FunctionName, sum)
+		klog.Infof("[ERT %s:%s] External response time for function: %d", node.FunctionNamespace, node.FunctionName, sum)
 	}
 
 	// Phase 4: publish times
