@@ -36,7 +36,7 @@ func (a Aggregator) getPodResponseTime(pod *corev1.Pod) *v1beta2.MetricValue {
 	rt, err := a.metricClient.PodMetrics(pod, metrics.ResponseTime)
 	if err != nil {
 		klog.Errorf("[%s] Could not retrieve pod metrics for pod: %s", pod.Name, err.Error())
-		return &v1beta2.MetricValue{Value: *resource.NewMilliQuantity(0, rt.Value.Format)}
+		return &v1beta2.MetricValue{Value: *resource.NewMilliQuantity(0, resource.DecimalSI)}
 	}
 	return rt
 }
