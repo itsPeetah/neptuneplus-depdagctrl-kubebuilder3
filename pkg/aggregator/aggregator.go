@@ -39,7 +39,11 @@ func (a *Aggregator) Aggregate() {
 	avgFunctionRTs := make(map[string]int64)
 	for _, node := range a.nodes {
 		sum, count := a.getFunctionMetric(node.FunctionName, node.FunctionNamespace)
-		avgFunctionRTs[node.FunctionNamespace+":"+node.FunctionName] = sum.Value.MilliValue() / int64(count)
+		var value int64 = 0
+		if count > 0 {
+			value = sum.Value.MilliValue() / int64(count)
+		}
+		avgFunctionRTs[node.FunctionNamespace+":"+node.FunctionName] = value
 	}
 
 	// Calculate edge aggregate response time minding invocation mode

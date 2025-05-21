@@ -25,6 +25,13 @@ func (a Aggregator) getFunctionMetric(name string, namespace string) (*v1beta2.M
 	var sum v1beta2.MetricValue
 	for _, pod := range labeledPodList.Items {
 		rt := a.getPodResponseTime(&pod)
+
+		if rt.Value.MilliValue() < 1 {
+			// Skipping pods that have not served a request in the monitored time frame
+			podCount--
+			continue
+		}
+
 		// klog.Infof("Response time for pod %s: %d", pod.Name, rt.Value.MilliValue())
 		sum.Value.Add(rt.Value)
 	}
