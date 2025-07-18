@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -41,6 +42,8 @@ type FunctionNode struct {
 	FunctionNamespace string `json:"functionNamespace"`
 	// Invocations is the list of out-edges from the node to invoked functions.
 	Invocations []InvocationEdge `json:"invocations"`
+	// Nominal Response Time is the response time recorded in the profiling phase
+	NominalResponseTime resource.Quantity `json:"nominalResponseTime"`
 }
 
 // DependencyGraphSpec defines the desired state of DependencyGraph.
@@ -66,7 +69,7 @@ type DependencyGraphStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	Nodes []NodeStatus `json:"nodes"`
+	// Nodes []NodeStatus `json:"nodes"`
 }
 
 // +kubebuilder:object:root=true

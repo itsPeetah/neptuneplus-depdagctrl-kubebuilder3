@@ -84,10 +84,19 @@ spec:
                         - functionNamespace
                         type: object
                       type: array
+                    nominalResponseTime:
+                      anyOf:
+                      - type: integer
+                      - type: string
+                      description: Nominal Response Time is the response time recorded
+                        in the profiling phase
+                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                      x-kubernetes-int-or-string: true
                   required:
                   - functionName
                   - functionNamespace
                   - invocations
+                  - nominalResponseTime
                   type: object
                 type: array
             required:
@@ -95,29 +104,6 @@ spec:
             type: object
           status:
             description: DependencyGraphStatus defines the observed state of DependencyGraph.
-            properties:
-              nodes:
-                items:
-                  properties:
-                    externalResponseTime:
-                      description: ExternalResponseTime is the aggregated metric describing
-                        the average response time of the function's dependencies
-                      format: int64
-                      type: integer
-                    functionName:
-                      description: FunctionName is the name of the function
-                      type: string
-                    functionNamespace:
-                      description: FunctionNamespace is the namespace of the function
-                      type: string
-                  required:
-                  - externalResponseTime
-                  - functionName
-                  - functionNamespace
-                  type: object
-                type: array
-            required:
-            - nodes
             type: object
         type: object
     served: true
