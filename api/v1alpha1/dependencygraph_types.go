@@ -69,7 +69,7 @@ type DependencyGraphStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	// Nodes []NodeStatus `json:"nodes"`
+	Nodes []NodeStatus `json:"nodes"`
 }
 
 // +kubebuilder:object:root=true
